@@ -22,14 +22,26 @@ export async function hashPassword(password: string) {
 }
 
 async function comparePasswords(supplied: string, stored: string) {
+  console.log('🔑 Comparing passwords:', { 
+    suppliedLength: supplied.length, 
+    storedFormat: stored.substring(0, 20) + '...', 
+    storedLength: stored.length,
+    hasDot: stored.includes('.')
+  });
+  
   const [hashed, salt] = stored.split(".");
+  console.log('🧂 Salt extraction:', { hashedLength: hashed?.length, saltLength: salt?.length, salt: salt?.substring(0, 10) + '...' });
+  
   if (!salt) {
+    console.log('❌ No salt found in stored password');
     return false;
   }
   
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-  return timingSafeEqual(hashedBuf, suppliedBuf);
+  const result = timingSafeEqual(hashedBuf, suppliedBuf);
+  console.log('🔍 Final comparison result:', result);
+  return result;
 }
 
 export function setupAuth(app: Express) {
@@ -58,10 +70,23 @@ export function setupAuth(app: Express) {
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
+      console.log('🔐 Login attempt:', { username, passwordLength: password.length });
       const user = await storage.getUserByUsername(username);
-      if (!user || !(await comparePasswords(password, user.password))) {
+      console.log('👤 User found:', user ? { id: user.id, username: user.username, hasPassword: !!user.password } : 'No user found');
+      
+      if (!user) {
+        console.log('❌ Login failed: User not found');
+        return done(null, false);
+      }
+      
+      const passwordMatch = await comparePasswords(password, user.password);
+      console.log('🔍 Password match:', passwordMatch);
+      
+      if (!passwordMatch) {
+        console.log('❌ Login failed: Password mismatch');
         return done(null, false);
       } else {
+        console.log('✅ Login successful for user:', user.username);
         return done(null, user);
       }
     }),

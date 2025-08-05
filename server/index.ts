@@ -51,6 +51,14 @@ app.use((req, res, next) => {
     // Seed predefined user accounts after roles are created
     await seedUsers();
     
+    // Fix user passwords to ensure they use the correct hashing format
+    try {
+      const { fixUserPasswords } = await import("./fix-passwords");
+      await fixUserPasswords();
+    } catch (error) {
+      console.log("Password fix not needed or already done");
+    }
+    
     const server = await registerRoutes(app);
 
     app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
